@@ -1,51 +1,35 @@
+name: Build Flet APK
+
+on:
+  push:
+    branches:
+      - main  # Você pode mudar para a branch que deseja monitorar
+
 jobs:
   build:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v2
+      - name: Checkout code
+        uses: actions/checkout@v3
 
-      - name: Set up Java
-        uses: actions/setup-java@v2
+      - name: Set up Python
+        uses: actions/setup-python@v4
         with:
-          distribution: 'zulu'
-          java-version: '11'
+          python-version: '3.10'
 
-      - name: Set up environment variables
+      - name: Install dependencies
         run: |
-          echo "ANDROID_HOME=$HOME/android-sdk" >> $GITHUB_ENV
-          echo "ANDROID_SDK_ROOT=$HOME/android-sdk" >> $GITHUB_ENV
-          echo "$HOME/android-sdk/cmdline-tools/latest/bin" >> $GITHUB_PATH
-          echo "$HOME/android-sdk/platform-tools" >> $GITHUB_PATH
+          python -m pip install --upgrade pip
+          pip install flet
+          pip install pyinstaller
 
-      - name: Install Android SDK
-        env:
-          ANDROID_HOME: ${{ env.ANDROID_HOME }}
-          ANDROID_SDK_ROOT: ${{ env.ANDROID_SDK_ROOT }}
+      - name: Build APK with PyInstaller
         run: |
-          sudo apt-get update
-          sudo apt-get install -y --no-install-recommends wget unzip
-          wget https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip -O cmdline-tools.zip
-          mkdir -p $ANDROID_HOME/cmdline-tools/latest
-          unzip -o cmdline-tools.zip -d $ANDROID_HOME/cmdline-tools/latest
-          yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses
-          $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "platform-tools" "build-tools;30.0.3" "platforms;android-30"
+          pyinstaller --name="appflet" --onefile --windowed main.py  # Substitua "main.py" pelo nome do seu arquivo principal
 
-      - name: Verify SDK Installation
-        run: |
-          echo "Checking if build-tools and platform-tools are installed..."
-          ls $ANDROID_HOME/build-tools/
-          ls $ANDROID_HOME/platform-tools/
-          ls $ANDROID_HOME/platforms/
-
-      - name: Build with Buildozer
-        uses: ArtemSBulgakov/buildozer-action@v1
-        with:
-          command: buildozer android debug
-          buildozer_version: master
-
-      - name: Upload artifacts
+      - name: Archive APK
         uses: actions/upload-artifact@v3
         with:
-          name: package
-          path: ${{ steps.buildozer.outputs.filename }}
+          name: appflet-apk
+          path: dist/appflet.apk  # Substitua pelo caminho correto do APK
