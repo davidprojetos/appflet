@@ -1,39 +1,42 @@
-name: Build Flet Android APK
-
+name: CI
 on:
   push:
-    branches:
-      - main
+    branches: [ main ]
 
 jobs:
   build:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checar o repositório
-        uses: actions/checkout@v2
+      - uses: actions/checkout@v2
 
-      - name: Instalar dependências
+      # used to cache dependencies with a timeout
+      - name: Get Date
+        id: get-date
         run: |
-          sudo apt update
-          sudo apt install -y python3 python3-pip openjdk-11-jdk
-          pip install flet
+          echo "::set-output name=date::$(/bin/date -u "+%Y%m%d")"
+        shell: bash
 
-      - name: Configurar ambiente Android
-        run: |
-          # Baixe e configure o SDK e NDK Android para a compilação
-          wget https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip -O cmdline-tools.zip
-          unzip cmdline-tools.zip -d $HOME
-          yes | $HOME/cmdline-tools/bin/sdkmanager --install "platforms;android-30" "build-tools;30.0.3" "ndk;21.4.7075529"
-          export ANDROID_HOME=$HOME/cmdline-tools
-
-      - name: Compilar o APK
-        run: |
-
-          echo "Compilação do APK deve ser configurada."
-
-      - name: Fazer upload do APK
-        uses: actions/upload-artifact@v3
+      - name: Cache Buildozer global directory
+        uses: actions/cache@v2
         with:
-          name: app
-          path: /
+          path: .buildozer_global
+          key: buildozer-global-${{ hashFiles('buildozer.spec') }} # Replace with your path
+
+      - uses: actions/cache@v2
+        with:
+          path: .buildozer
+          key: ${{ runner.os }}-${{ steps.get-date.outputs.date }}-${{ hashFiles('buildozer.spec') }}
+
+      - name: Build with Buildozer
+        uses: ArtemSBulgakov/buildozer-action@v1
+        id: buildozer
+        with:
+          command: buildozer android debug
+          buildozer_version: master
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v2
+        with:
+          name: package
+          path: ${{ steps.buildozer.outputs.filename }}
